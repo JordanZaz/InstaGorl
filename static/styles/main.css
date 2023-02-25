@@ -248,3 +248,78 @@ color: gray;
   transition: background 1.6s ease-in-out;
 }
 
+
+
+#loading {
+    position: fixed;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    background-color: rgba(0, 0, 0, 0.1);
+    z-index: 9999;
+}
+
+.loading {
+    font-size: 40px;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.loading img {
+    max-height: 80px;
+    max-width: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    animation: spin 2s linear infinite;
+}
+
+.loading p .dots {
+    margin-top: 10px;
+    position: relative;
+}
+
+.loading .dots {
+  position: absolute;
+  top: 0;
+  right: 0px;
+  margin-top: 10px;
+  display: inline-block;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 25px;
+  font-weight: bold;
+  color: hotpink;
+  font-size: 24px;
+}
+
+
+.loading .dots:before {
+    content: "";
+    display: block;
+    animation: dots 2s ease-in-out infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes dots {
+    0% { content: "L" }
+    10% { content: "LO" }
+    20% { content: "LOA" }
+    30% { content: "LOAD" }
+    40% { content: "LOADI" }
+    50% { content: "LOADIN" }
+    60% { content: "LOADING" }
+    70% { content: "LOADING." }
+    80% { content: "LOADING.." }
+    90% { content: "LOADING..." }
+    100% { content: "LOADING..." }
+}

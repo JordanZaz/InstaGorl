@@ -21,6 +21,13 @@
 
   </head>
   <body>
+
+    {% block loading %}
+      <div id="loading">
+      {% include 'gorl/loading.html' %}
+      </div>
+    {% endblock loading %}
+
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark navbar-brand container-fluid d-flex justify-content-center sticky-top my-navbar">
   <a class="navbar-brand" href="{% url 'home' %}">InstaGorl</a>
   <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -88,6 +95,48 @@
     }
   }, 6000);
 
+
+var loadingTimeout;
+
+// Set a timeout of 2 seconds to show the loading screen
+loadingTimeout = setTimeout(function() {
+  var loadingDiv = document.getElementById("loading");
+  var body = document.body;
+  if (loadingDiv) {
+    console.log('Loading screen is shown');
+    loadingDiv.style.display = "flex";
+    body.style.overflow = "hidden";
+  }
+}, 2000);
+
+// hide the loading screen once the window is loaded
+window.onload = function() {
+  var loadingDiv = document.getElementById("loading");
+  var body = document.body;
+  if (loadingDiv) {
+    console.log('Loading screen is hidden');
+    loadingDiv.style.display = "none";
+    body.style.overflow = "auto";
+  }
+  clearTimeout(loadingTimeout);
+};
+
+// hide the loading screen when the DOM content has been loaded
+document.addEventListener('DOMContentLoaded', function() {
+  var loadingDiv = document.getElementById("loading");
+  if (loadingDiv) {
+    var timeSinceNavigationStart = performance.now() - performance.timing.navigationStart;
+    if (timeSinceNavigationStart > 2000) { // only show loading screen if HTML content takes longer than 2 seconds to load
+      console.log('Loading screen is shown');
+      loadingDiv.style.display = "flex";
+      document.body.style.overflow = "hidden";
+    }
+    console.log('Loading screen is hidden');
+    loadingDiv.style.display = "none";
+    document.body.style.overflow = "auto";
+    clearTimeout(loadingTimeout);
+  }
+});
 
 
 </script>

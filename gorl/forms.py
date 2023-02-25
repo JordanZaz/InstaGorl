@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.models import User
-from .models import Post, Profile
+from .models import Post, Profile, Comment
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Field, Layout
 from django.contrib import messages
@@ -224,3 +224,11 @@ class PostFilter(django_filters.FilterSet):
     class Meta:
         model = Post
         fields = ['title', 'username']
+
+
+class CommentForm(forms.ModelForm):
+    content = forms.CharField(widget=forms.Textarea)
+
+    class Meta:
+        model = Comment
+        fields = ["content"]

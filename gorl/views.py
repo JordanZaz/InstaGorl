@@ -7,16 +7,19 @@ from .forms import CustomUserCreationForm, CustomAuthenticationForm, UpdateProfi
 from django.contrib.auth import authenticate, login, logout
 # from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
-from .forms import PostForm, ProfileUpdateForm, PostFilter
+from .forms import PostForm, ProfileUpdateForm, PostFilter, CommentForm
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse, reverse_lazy
-from django.http import HttpResponse, HttpResponseNotFound, JsonResponse
+from django.http import HttpResponse, HttpResponseNotFound, JsonResponse, HttpResponseBadRequest
 from django.contrib.auth.decorators import login_required
 # from django.http import QueryDict
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger, InvalidPage
 from django.utils import timezone
 from django.db.models import Sum, F
 from PIL import Image
+from django.template.loader import render_to_string
+from django.conf import settings
+from django.core.cache import cache
 
 
 class PostListView(ListView):
@@ -297,17 +300,6 @@ class UpdatePost(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         return reverse_lazy('post-detail', kwargs={'pk': self.object.pk})
 
 
-class PostDetailView(DetailView):
-    model = Post
-    template_name = 'gorl/post_detail.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['comments'] = Comment.objects.all()
-
-        return context
-
-
 class DeletePostView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     model = Post
     template_name = 'gorl/delete_post.html'
@@ -412,23 +404,202 @@ class UpdateProfileView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         messages.success(
             self.request, "Don't be like that Gorl.")
         # redirect to an error page if the user is not the author of the post
-        return render(self.request, 'gorl/error.html', {'error': "You don't have permission to edit this post."})
+        return render(self.request, 'gorl/error.html', {'error': "You don't have permission to edit this profile."})
 
     def get_success_url(self):
         return reverse_lazy('update-profile', kwargs={'pk': self.object.pk})
 
 
+# @login_required
+# def upvote(request, post_id):
+#     post = get_object_or_404(Post, pk=post_id)
+#     user = request.user  # get the user object
+#     post.upvote(user)
+#     return JsonResponse({"upvotes": post.upvotes, "downvotes": post.downvotes, "score": post.score})
+
+
+# @login_required
+# def downvote(request, post_id):
+#     post = get_object_or_404(Post, pk=post_id)
+#     user = request.user
+#     post.downvote(user)
+#     return JsonResponse({"upvotes": post.upvotes, "downvotes": post.downvotes, "score": post.score})
+
 @login_required
 def upvote(request, post_id):
-    post = get_object_or_404(Post, pk=post_id)
-    user = request.user  # get the user object
-    post.upvote(user)
-    return JsonResponse({"upvotes": post.upvotes, "downvotes": post.downvotes, "score": post.score})
+    if request.method == 'POST':
+        post = get_object_or_404(Post, pk=post_id)
+        user = request.user
+        if user.is_authenticated:
+            post.upvote(user)
+            return JsonResponse({"upvotes": post.upvotes, "downvotes": post.downvotes, "score": post.score})
+        else:
+            return JsonResponse({"error": "User is not authenticated."}, status=401)
+    else:
+        messages.success(
+            request, "Don't be like that Gorl.")
+        return render(request, 'gorl/error.html', {'error': "You don't have permission to do that."})
 
 
 @login_required
 def downvote(request, post_id):
-    post = get_object_or_404(Post, pk=post_id)
-    user = request.user
-    post.downvote(user)
-    return JsonResponse({"upvotes": post.upvotes, "downvotes": post.downvotes, "score": post.score})
+    if request.method == 'POST':
+        post = get_object_or_404(Post, pk=post_id)
+        user = request.user
+        if user.is_authenticated:
+            post.downvote(user)
+            return JsonResponse({"upvotes": post.upvotes, "downvotes": post.downvotes, "score": post.score})
+        else:
+            return JsonResponse({"error": "User is not authenticated."}, status=401)
+    else:
+        messages.success(
+            request, "Don't be like that Gorl.")
+        return render(request, 'gorl/error.html', {'error': "You don't have permission to do that."})
+
+
+class PostDetailView(DetailView):
+    model = Post
+    template_name = 'gorl/post_detail.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['comments'] = self.object.comments.all()
+        return context
+
+
+@login_required
+def add_comment_to_post(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+
+    if request.method == 'POST':
+        form = CommentForm(request.POST)
+        if form.is_valid():
+            user_last_comment_key = f'user_last_comment_{request.user.pk}'
+            last_comment_time = cache.get(user_last_comment_key)
+
+            if last_comment_time and (timezone.now() - last_comment_time) < timezone.timedelta(seconds=30):
+                return JsonResponse({'success': False, 'error_message': 'You can only post a comment every 30 seconds.'})
+            else:
+                comment = form.save(commit=False)
+                comment.author = request.user
+                comment.post_id = post
+                comment.save()
+                cache.set(user_last_comment_key, timezone.now(), timeout=30)
+
+                new_comment_score = comment.score if comment else None
+                context = {
+                    'new_comment': comment,
+                    'user_authenticated': True,
+                    'user': request.user,
+                    'comment_id': comment.id,
+                    'new_comment_score': new_comment_score,
+                }
+                new_comment = render_to_string('gorl/comments.html', context)
+                context['new_comment_score'] = new_comment_score
+                return JsonResponse({'success': True, 'new_comment': new_comment, 'comment_id': comment.id, 'new_comment_score': new_comment_score})
+        else:
+            messages.error(request, 'There was an error posting your comment.')
+    else:
+        form = CommentForm()
+
+    comments = post.comments.all()
+
+    context = {
+        'form': form,
+        'post': post,
+        'comments': comments,
+        'new_comment': None,
+        'user_authenticated': request.user.is_authenticated,
+        'new_comment_score': None,
+    }
+
+    return render(request, 'gorl/post_detail.html', context)
+
+
+@login_required
+def upvote_comment(request, comment_id):
+    if request.method == 'POST':
+        comment = get_object_or_404(Comment, pk=comment_id)
+        user = request.user
+        if user.is_authenticated:
+            comment.upvote(user)
+            return JsonResponse({"upvotes": comment.upvotes, "downvotes": comment.downvotes, "score": comment.score})
+        else:
+            return JsonResponse({"error": "User is not authenticated."}, status=401)
+    else:
+        messages.success(request, "Don't be like that Gorl.")
+        return render(request, 'gorl/error.html', {'error': "You don't have permission to do that."})
+
+
+@login_required
+def downvote_comment(request, comment_id):
+    if request.method == 'POST':
+        comment = get_object_or_404(Comment, pk=comment_id)
+        user = request.user
+        if user.is_authenticated:
+            comment.downvote(user)
+            return JsonResponse({"upvotes": comment.upvotes, "downvotes": comment.downvotes, "score": comment.score})
+        else:
+            return JsonResponse({"error": "User is not authenticated."}, status=401)
+    else:
+        messages.success(
+            request, "Don't be like that Gorl.")
+        return render(request, 'gorl/error.html', {'error': "You don't have permission to do that."})
+
+
+class UpdateCommentView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    model = Comment
+    form_class = CommentForm
+    template_name = 'gorl/update_comment.html'
+
+    def get_success_url(self):
+        return reverse_lazy('post-detail', kwargs={'pk': self.object.post_id.pk})
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return queryset.filter(author=self.request.user)
+
+    def test_func(self):
+        comment = self.get_object()
+        return self.request.user == comment.author
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['post'] = self.get_object().post_id
+        return context
+
+    def handle_no_permission(self):
+        messages.success(
+            self.request, "Don't be like that Gorl.")
+        # redirect to an error page if the user is not the author of the post
+        return render(self.request, 'gorl/error.html', {'error': "You don't have permission to edit this comment."})
+
+
+class DeleteCommentView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
+    model = Comment
+    template_name = 'gorl/comment_confirm_delete.html'
+
+    def get_success_url(self):
+        comment = self.get_object()
+        return reverse_lazy('post-detail', kwargs={'pk': comment.post_id.pk})
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return queryset.filter(author=self.request.user)
+
+    def test_func(self):
+        comment = self.get_object()
+        return self.request.user == comment.author
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # add the comment object to the context dictionary
+        context['comment'] = self.get_object()
+        context['post'] = self.get_object().post_id
+        return context
+
+    def handle_no_permission(self):
+        messages.success(
+            self.request, "Don't be like that Gorl.")
+        # redirect to an error page if the user is not the author of the post
+        return render(self.request, 'gorl/error.html', {'error': "You don't have permission to delete this comment."})

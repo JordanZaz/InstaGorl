@@ -9,21 +9,15 @@
         <h3 class="card-header">
           <a href="{% url 'post-detail' pk=post.pk %}" class="link-hover">{{ post.title }}</a>
         </h3>
+        <div class="card-text my-3">{{ post.body|linebreaks }}</div>
         {% if post.files or post.file_url %}
-          <div class="row">
-            <div class="col-md-8">
-                <div class="card-text my-3">{{ post.body|linebreaks }}</div>
-            </div>
-            <div class="col-md-4 my-3 d-flex justify-content-center align-items-center">
-              {% if post.files %}
-                <img src="{{ post.files.url }}" alt="Post file" style="max-width:100px; max-height:100px;">
-              {% elif post.file_url %}
-                <img src="{{ post.file_url }}" alt="Post file url" style="max-width:100px; max-height:100px;">
-              {% endif %}
-            </div>
+          <div class="text-center my-3">
+            {% if post.files %}
+              <img src="{{ post.files.url }}" alt="Post file" style="display: inline-block; max-width:100%; max-height:100%;">
+            {% elif post.file_url %}
+              <img src="{{ post.file_url }}" alt="Post file url" style="display: inline-block;">
+            {% endif %}
           </div>
-        {% else %}
-                <div class="card-text my-3">{{ post.body|linebreaks }}</div>
         {% endif %}
         <p class="card-text"><small class="text-muted">Posted by <a href="{% url 'user-posts' post.author.username %}" class="link-hover">
               {% if post.author.profile.image.url %}
@@ -36,7 +30,7 @@
         <div class="button-container">
        <div class="like-button-container">
         {% if request.user.is_authenticated %}
-            <input type="hidden" id="user_authenticated" value="True">
+            <input type="hidden" id="user_authenticated" value="{{ request.user.is_authenticated }}">
             <a href="#" class="link-hover like-button {% if upvoted.post.id %}voted{% endif %}" id="upvote-button-{{ post.id }}" onclick="upvote(event, {{ post.id }})">▲</a>
             (<span id="votes-count-{{post.id}}" {% if post.score < 0 %} class="negative-score" {% endif %}>{{ post.score }}</span>)
             <a href="#" class="link-hover like-button {% if downvoted.post.id %}voted{% endif %}" id="downvote-button-{{ post.id }}" onclick="downvote(event, {{ post.id }})">▼</a>
@@ -54,6 +48,25 @@
           {% endif %}
       </div>
     </div>
+
+<div id="comments" class="mt-4">
+  {% include 'gorl/comments.html' %}
+</div>
+
+{% if user.is_authenticated %}
+  <form id="comment-form" method="POST" data-url="{% url 'add_comment_to_post' post_id=post.id %}" onsubmit="event.preventDefault(); postComment({{ post.id }});">
+
+    {% csrf_token %}
+    <div class="form-group">
+      <label for="comment">Leave a comment:</label>
+      <textarea class="form-control" id="comment" name="content" rows="3"></textarea>
+    </div>
+    <button type="submit" class="btn btn-outline-info hot-pink-button">Submit</button>
+  </form>
+{% endif %}
+
+
+
     </div>
   </div>
 

@@ -105,7 +105,7 @@
         </p>
        <div class="like-button-container">
         {% if request.user.is_authenticated %}
-            <input type="hidden" id="user_authenticated" value="True">
+            <input type="hidden" id="user_authenticated" value="{{ request.user.is_authenticated }}">
             <a href="#" class="link-hover like-button {% if upvoted.post.id %}voted{% endif %}" id="upvote-button-{{ post.id }}" onclick="upvote(event, {{ post.id }})">▲</a>
             (<span id="votes-count-{{post.id}}" {% if post.score < 0 %} class="negative-score" {% endif %}>{{ post.score }}</span>)
             <a href="#" class="link-hover like-button {% if downvoted.post.id %}voted{% endif %}" id="downvote-button-{{ post.id }}" onclick="downvote(event, {{ post.id }})">▼</a>

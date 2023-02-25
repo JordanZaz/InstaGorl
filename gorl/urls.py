@@ -18,7 +18,13 @@ urlpatterns = [
          views.UpdateProfileView.as_view(), name='update-profile'),
     path('search/', views.SearchView.as_view(), name='search'),
     path('search-users/', views.SearchUsersView.as_view(), name='search-users'),
-
-
+    path('post/<int:post_id>/comment/',
+         views.add_comment_to_post, name='add_comment_to_post'),
+    path('comment/upvote/<int:comment_id>/',
+         views.upvote_comment, name='upvote_comment'),
+    path('comment/downvote/<int:comment_id>/',
+         views.downvote_comment, name='downvote_comment'),
+    path('post/<int:post_id>/comment/<int:pk>/update/', views.UpdateCommentView.as_view(), name='update-comment'),
+    path('post/<int:post_id>/comment/<int:pk>/delete/', views.DeleteCommentView.as_view(), name='delete-comment'),
 
 ]
